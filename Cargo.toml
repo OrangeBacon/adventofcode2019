@@ -1,0 +1,10 @@
+[package]
+name = "adventofcode2019"
+version = "0.1.0"
+authors = ["OrangeBacon <computer.backup.15@gmail.com>"]
+edition = "2018"
+publish = false
+include = ["data/*.txt"]
+
+[dependencies]
+regex = "1"
