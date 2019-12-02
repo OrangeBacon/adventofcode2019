@@ -65,12 +65,16 @@ struct ID(u32, Part);
 
 mod day1a;
 mod day1b;
+mod day2a;
+mod day2b;
 
 fn run(day: u32, part: Part) {
     let id = ID(day, part);
     match id {
         ID(1, Part::First) => day1a::day1a(),
         ID(1, Part::Second) => day1b::day1b(),
+        ID(2, Part::First) => day2a::day2a(),
+        ID(2, Part::Second) => day2b::day2b(),
         ID(_, _) => println!("Could not find day/part"),
     }
 }
