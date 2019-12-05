@@ -1,5 +1,7 @@
-use std::env;
 extern crate regex;
+mod intcode;
+
+use std::env;
 
 enum Part {
     First,
@@ -71,6 +73,8 @@ mod day3a;
 mod day3b;
 mod day4a;
 mod day4b;
+mod day5a;
+mod day5b;
 
 fn run(day: u32, part: Part) {
     let id = ID(day, part);
@@ -83,6 +87,8 @@ fn run(day: u32, part: Part) {
         ID(3, Part::Second) => day3b::day3b(),
         ID(4, Part::First) => day4a::day4a(),
         ID(4, Part::Second) => day4b::day4b(),
+        ID(5, Part::First) => day5a::day5a(),
+        ID(5, Part::Second) => day5b::day5b(),
         ID(_, _) => println!("Could not find day/part"),
     }
 }
