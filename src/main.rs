@@ -89,6 +89,8 @@ mod day4a;
 mod day4b;
 mod day5a;
 mod day5b;
+mod day6a;
+mod day6b;
 
 fn run(day: u32, part: Part) {
     let id = ID(day, part);
@@ -103,6 +105,8 @@ fn run(day: u32, part: Part) {
         ID(4, Part::Second) => day4b::day4b(),
         ID(5, Part::First) => day5a::day5a(),
         ID(5, Part::Second) => day5b::day5b(),
+        ID(6, Part::First) => day6a::day6a(),
+        ID(6, Part::Second) => day6b::day6b(),
         ID(_, _) => println!("Could not find day/part"),
     }
 }

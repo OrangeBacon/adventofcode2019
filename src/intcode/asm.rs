@@ -214,12 +214,8 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
             match req {
                 0 => {
                     match opcode.args[i] {
-                        Literal(_) => {
-                            println!("Position {} must be a variable on line {}", i, line_num+1);
-                            exit(0);
-                        },
                         Variable(_) => (),
-                        Address(_) => {
+                        _ => {
                             println!("Position {} must be a variable on line {}", i, line_num+1);
                             exit(0);
                         },
@@ -227,12 +223,8 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                 }
                 1 => {
                     match opcode.args[i] {
-                        Variable(_) => {
-                            println!("Position {} must be a literal on line {}", i, line_num+1);
-                            exit(0);
-                        },
                         Literal(_) => (),
-                        Address(_) => {
+                        _ => {
                             println!("Position {} must be a literal on line {}", i, line_num+1);
                             exit(0);
                         },
@@ -241,11 +233,7 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                 2 => {
                     match opcode.args[i] {
                         Address(_) => (),
-                        Literal(_) => {
-                            println!("Position {} must be an address on line {}", i, line_num+1);
-                            exit(0);
-                        },
-                        Variable(_) => {
+                        _ => {
                             println!("Position {} must be an address on line {}", i, line_num+1);
                             exit(0);
                         },
