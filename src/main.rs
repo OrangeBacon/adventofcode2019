@@ -1,7 +1,5 @@
-extern crate regex;
-mod intcode;
-
 use std::env;
+mod intcode;
 
 enum Part {
     First,
@@ -14,6 +12,22 @@ fn main() {
         println!("Please specify the code to run (e.g. 2b)");
         return;
     }
+
+    if args.len() == 4 && args[1] == "asm" {
+        intcode::asm(&args[2], &args[3]);
+        return;
+    }
+
+    if args.len() == 3 && args[1] == "int" {
+        intcode::run(&mut intcode::input(&args[2]), &vec![]);
+        return;
+    }
+
+    if args.len() == 3 && args[1] == "run" {
+        intcode::run(&mut intcode::asm(&args[2], ""), &vec![]);
+        return;
+    }
+
     if args.len() > 2 {
         println!("Only 1 argument allowed");
         return;

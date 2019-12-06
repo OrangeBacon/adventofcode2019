@@ -1,31 +1,5 @@
-use std::error::Error;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::Path;
-
-pub fn input(path: &str) -> Vec<i32> {
-    let path = Path::new(path);
-    let display = path.display();
-
-    let mut file = match File::open(&path) {
-        Err(why) => panic!("Couldn't open {}: {}", display, why.description()),
-        Ok(file) => file,
-    };
-
-    let mut s = String::new();
-    match file.read_to_string(&mut s) {
-        Err(why) => panic!("Couldn't read {}: {}", display, why.description()),
-        Ok(_) => {}
-    }
-
-    s.split(",").map(|x| {
-        match x.as_bytes()[0] {
-            b'-' => -(x[1..].parse::<i32>().unwrap()),
-            _ => x.parse().unwrap(),
-        }
-        
-    }).collect()
-}
+use std::io;
+use std::io::Write;
 
 fn getnum(code: &mut Vec<i32>, ip: usize, mode: i32) -> i32 {
     match mode {
@@ -77,9 +51,24 @@ pub fn run(code: &mut Vec<i32>, input: &Vec<i32>) -> i32 {
                 ip += 4;
             },
             3 => {
-                let loc = code[ip+1]; 
-                code[num2ip(loc)] = input[input_idx]; 
-                input_idx += 1; 
+                let loc = code[ip+1];
+                let inval;
+                if input_idx < input.len() {
+                    inval = input[input_idx];
+                    input_idx += 1;
+                } else {
+                    let mut input = String::new();
+                    print!("> ");
+                    io::stdout().flush().expect("Could not write prompt");
+                    match io::stdin().read_line(&mut input) {
+                        Ok(_) => inval = match input.trim().parse::<i32>() {
+                            Ok(a) => a,
+                            Err(_) => panic!("Didn't read number"),
+                        },
+                        Err(_) => panic!("Unable to read"),
+                    }
+                }
+                code[num2ip(loc)] = inval;
                 ip += 2;
             },
             4 => {

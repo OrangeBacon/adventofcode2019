@@ -8,3 +8,4 @@ include = ["data/*.txt"]
 
 [dependencies]
 regex = "1"
+indexmap = "1"
