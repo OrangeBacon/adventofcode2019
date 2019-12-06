@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
+use std::collections::HashMap;
 use indexmap::map::IndexMap;
 use regex::Regex;
 
@@ -10,6 +11,7 @@ use regex::Regex;
 enum Argument {
     Literal(i32),
     Variable(usize),
+    Address(String),
 }
 use Argument::*;
 
@@ -24,6 +26,7 @@ struct Opcode {
 #[derive(Debug)]
 struct Environment {
     variables: IndexMap<String, i32>,
+    labels: HashMap<String, usize>,
     code: Vec<Opcode>,
 }
 
@@ -32,6 +35,7 @@ impl Environment {
         Environment {
             variables: IndexMap::new(),
             code: vec![],
+            labels: HashMap::new(),
         }
     }
 
@@ -43,6 +47,10 @@ impl Environment {
                 exit(1);
             }
         };
+        if self.variables.contains_key(name) {
+            println!("Duplicate variable: {}", name);
+            exit(1);
+        }
         self.variables.insert(name.to_string(), num);
     }
 }
@@ -71,9 +79,13 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
     }
 
     let mut env = Environment::new();
+    let mut label_counter = 0;
 
     let var = Regex::new(
         r"\$([[:word:]]+)[[:space:]]*=[[:space:]](-?[[:digit:]]+)*"
+    ).unwrap();
+    let label = Regex::new(
+        r"([[:word:]]+):"
     ).unwrap();
 
     for (line_num, line) in s.lines().enumerate() {
@@ -98,6 +110,17 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
             _ => ()
         }
 
+        match label.captures(chars) {
+            Some(a) => {
+                if env.labels.contains_key(&a[1].to_string()) {
+                    println!("Duplicate label: {} at line {}", chars, line_num+1);
+                }
+                env.labels.insert(a[1].to_string(), label_counter);
+                continue;
+            },
+            None => (),
+        }
+
         let mut opcode = Opcode {number: 0, args: vec![], arg_count: 0, arg_requirements: vec![]};
         let mut words = chars.split_whitespace();
 
@@ -106,12 +129,12 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                 opcode.number = 1;
                 opcode.arg_count = 3;
                 opcode.arg_requirements = vec![-1, -1, 0];
-            },
+            }
             "mul" => {
                 opcode.number = 2;
                 opcode.arg_count = 3;
                 opcode.arg_requirements = vec![-1, -1, 0];
-            },
+            }
             "inp" => {
                 opcode.number = 3;
                 opcode.arg_count = 1;
@@ -122,6 +145,16 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                 opcode.arg_count = 1;
                 opcode.arg_requirements = vec![-1];
             }
+            "jnz" => {
+                opcode.number = 5;
+                opcode.arg_count = 2;
+                opcode.arg_requirements = vec![-1, 2];
+            }
+            "jez" => {
+                opcode.number = 6;
+                opcode.arg_count = 2;
+                opcode.arg_requirements = vec![-1, 2];
+            }
             "nlt" => {
                 opcode.number = 7;
                 opcode.arg_count = 3;
@@ -131,6 +164,11 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                 opcode.number = 8;
                 opcode.arg_count = 3;
                 opcode.arg_requirements = vec![-1, -1, 0];
+            }
+            "hlt" => {
+                opcode.number = 99;
+                opcode.arg_count = 0;
+                opcode.arg_requirements = vec![];
             }
             a => {
                 println!("Unrecognised opcode: {} on line {}", a, line_num+1);
@@ -150,6 +188,10 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                     }
                     continue;
                 },
+                ':' => {
+                    opcode.args.push(Address(word[1..].to_string()));
+                    continue;
+                }
                 ';' => break,
                 _ => (),
             }
@@ -177,6 +219,10 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                             exit(0);
                         },
                         Variable(_) => (),
+                        Address(_) => {
+                            println!("Position {} must be a variable on line {}", i, line_num+1);
+                            exit(0);
+                        },
                     }
                 }
                 1 => {
@@ -186,12 +232,29 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                             exit(0);
                         },
                         Literal(_) => (),
+                        Address(_) => {
+                            println!("Position {} must be a literal on line {}", i, line_num+1);
+                            exit(0);
+                        },
+                    }
+                }
+                2 => {
+                    match opcode.args[i] {
+                        Address(_) => (),
+                        Literal(_) => {
+                            println!("Position {} must be an address on line {}", i, line_num+1);
+                            exit(0);
+                        },
+                        Variable(_) => {
+                            println!("Position {} must be an address on line {}", i, line_num+1);
+                            exit(0);
+                        },
                     }
                 }
                 _ => ()
             }
         }
-
+        label_counter += opcode.arg_count + 1;
         env.code.push(opcode);
     }
 
@@ -205,6 +268,7 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
             match arg {
                 Literal(_) => num += 10i32.pow(i as u32 + 2),
                 Variable(_) => (),
+                Address(_) => num += 10i32.pow(i as u32 + 2),
             }
         }
         output_nums.push(num);
@@ -216,6 +280,16 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                     patches.push((output_nums.len(), *a));
                     output_nums.push(-1);
                 },
+                Address(a) => {
+                    match env.labels.get(a) {
+                        Some(loc) => output_nums.push(*loc as i32),
+                        None => {
+                            println!("Undefined label {}", a);
+                            exit(1);
+                        }
+                    }
+                    
+                }
             }
         }
     }

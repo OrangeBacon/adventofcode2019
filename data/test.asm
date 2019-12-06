@@ -1,7 +1,24 @@
-$0 = 0
-$1 = 0
-inp $0
-add 10 $0 $0
-out $0
-eql 17 $0 $1
-out $1
+entry:
+    $input = 0
+    $input10 = 0
+    $isEq17 = 0
+    inp $input
+    add 10 $input $input10
+    out $input10
+    eql 17 $input10 $isEq17
+    jnz $isEq17 :eq17
+    jez $isEq17 :neq17
+    hlt
+
+eq17:
+    out 80085
+    jez 0 :entry
+
+neq17:
+    $isEq1 = 0
+    eql 1 $input $isEq1
+    jnz $isEq1 :exit
+    out 666
+    jez 0 :entry
+
+exit:
