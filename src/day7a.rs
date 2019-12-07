@@ -18,25 +18,30 @@ pub fn day7a() {
                         if inputs.len() != 5 {
                             continue;
                         }
-                        let mut first = intcode::RunData {code: code.clone(), ip: 0};
-                        intcode::run_yield(&mut first, a);
-                        let first_val = intcode::run_yield(&mut first, 0).unwrap();
+                        let mut first = intcode::RunData::new(&mut code.clone());
+                        first.input_vec(&[a, 0]);
+                        intcode::run_yield(&mut first);
+                        let first_val = intcode::run_yield(&mut first).as_output();
 
-                        let mut second = intcode::RunData {code: code.clone(), ip: 0};
-                        intcode::run_yield(&mut second, b);
-                        let second_val = intcode::run_yield(&mut second, first_val).unwrap();
+                        let mut second = intcode::RunData::new(&mut code.clone());
+                        second.input_vec(&[b, first_val]);
+                        intcode::run_yield(&mut second);
+                        let second_val = intcode::run_yield(&mut second).as_output();
                         
-                        let mut third = intcode::RunData {code: code.clone(), ip: 0};
-                        intcode::run_yield(&mut third, c);
-                        let third_val = intcode::run_yield(&mut third, second_val).unwrap();
+                        let mut third = intcode::RunData::new(&mut code.clone());
+                        third.input_vec(&[c, second_val]);
+                        intcode::run_yield(&mut third);
+                        let third_val = intcode::run_yield(&mut third).as_output();
 
-                        let mut fourth = intcode::RunData {code: code.clone(), ip: 0};
-                        intcode::run_yield(&mut fourth, d);
-                        let fourth_val = intcode::run_yield(&mut fourth, third_val).unwrap();
+                        let mut fourth = intcode::RunData::new(&mut code.clone());
+                        fourth.input_vec(&[d, third_val]);
+                        intcode::run_yield(&mut fourth);
+                        let fourth_val = intcode::run_yield(&mut fourth).as_output();
 
-                        let mut fifth = intcode::RunData {code: code.clone(), ip: 0};
-                        intcode::run_yield(&mut fifth, e);
-                        let fifth_val = intcode::run_yield(&mut fifth, fourth_val).unwrap();
+                        let mut fifth = intcode::RunData::new(&mut code.clone());
+                        fifth.input_vec(&[e, fourth_val]);
+                        intcode::run_yield(&mut fifth);
+                        let fifth_val = intcode::run_yield(&mut fifth).as_output();
                         
                         outputs.push(fifth_val);
                     }

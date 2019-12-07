@@ -19,37 +19,45 @@ pub fn day7b() {
                             continue;
                         }
 
-                        let mut first = intcode::RunData {code: code.clone(), ip: 0};
-                        let mut second = intcode::RunData {code: code.clone(), ip: 0};
-                        let mut third = intcode::RunData {code: code.clone(), ip: 0};
-                        let mut fourth = intcode::RunData {code: code.clone(), ip: 0};
-                        let mut fifth = intcode::RunData {code: code.clone(), ip: 0};
+                        let mut first = intcode::RunData::new(&mut code.clone());
+                        let mut second = intcode::RunData::new(&mut code.clone());
+                        let mut third = intcode::RunData::new(&mut code.clone());
+                        let mut fourth = intcode::RunData::new(&mut code.clone());
+                        let mut fifth = intcode::RunData::new(&mut code.clone());
 
-                        intcode::run_yield(&mut first, a);
-                        let mut first_val = intcode::run_yield(&mut first, 0).unwrap();
+                        first.input_vec(&[a, 0]);
+                        let mut first_val = intcode::run_yield(&mut first).as_output();
 
-                        intcode::run_yield(&mut second, b);
-                        let mut second_val = intcode::run_yield(&mut second, first_val).unwrap();
+                        second.input_vec(&[b, first_val]);
+                        let mut second_val = intcode::run_yield(&mut second).as_output();
                     
-                        intcode::run_yield(&mut third, c);
-                        let mut third_val = intcode::run_yield(&mut third, second_val).unwrap();
+                        third.input_vec(&[c, second_val]);
+                        let mut third_val = intcode::run_yield(&mut third).as_output();
 
-                        intcode::run_yield(&mut fourth, d);
-                        let mut fourth_val = intcode::run_yield(&mut fourth, third_val).unwrap();
+                        fourth.input_vec(&[d, third_val]);
+                        let mut fourth_val = intcode::run_yield(&mut fourth).as_output();
 
-                        intcode::run_yield(&mut fifth, e);
-                        let mut final_val = intcode::run_yield(&mut fifth, fourth_val).unwrap();
+                        fifth.input_vec(&[e, fourth_val]);
+                        let mut final_val = intcode::run_yield(&mut fifth).as_output();
 
                         loop {
-                            first_val = match intcode::run_yield(&mut first, final_val) {
-                                Some(a) => a,
-                                None => break,
+                            first.input(final_val);
+                            first_val = match intcode::run_yield(&mut first) {
+                                intcode::Interrupt::Output(a) => a,
+                                _ => break,
                             };
 
-                            second_val = intcode::run_yield(&mut second, first_val).unwrap();
-                            third_val = intcode::run_yield(&mut third, second_val).unwrap();
-                            fourth_val = intcode::run_yield(&mut fourth, third_val).unwrap();
-                            final_val = intcode::run_yield(&mut fifth, fourth_val).unwrap();
+                            second.input(first_val);
+                            second_val = intcode::run_yield(&mut second).as_output();
+
+                            third.input(second_val);
+                            third_val = intcode::run_yield(&mut third).as_output();
+
+                            fourth.input(third_val);
+                            fourth_val = intcode::run_yield(&mut fourth).as_output();
+
+                            fifth.input(fourth_val);
+                            final_val = intcode::run_yield(&mut fifth).as_output();
                         }
                         
                         outputs.push(final_val);
