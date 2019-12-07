@@ -3,83 +3,14 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::collections::VecDeque;
 use std::collections::BTreeSet;
-use std::fmt;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use super::input;
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Instructions {
-    Add,
-    Multiply,
-    Input,
-    Output,
-    JumpNotZero,
-    JumpZero,
-    LessThan,
-    EqualTo,
-    Halt,
-    Unknown,
-}
-
-impl Instructions {
-    fn from_i32(val: i32) -> Instructions {
-        match val {
-             1 => Instructions::Add,
-             2 => Instructions::Multiply,
-             3 => Instructions::Input,
-             4 => Instructions::Output,
-             5 => Instructions::JumpNotZero,
-             6 => Instructions::JumpZero,
-             7 => Instructions::LessThan,
-             8 => Instructions::EqualTo,
-             99 => Instructions::Halt,
-             _ => Instructions::Unknown,
-        }
-    }
-
-    fn to_params(&self) -> Vec<i32> {
-        match self {
-            Instructions::Add => vec![-1, -1, 0],
-            Instructions::Multiply => vec![-1, -1, 0],
-            Instructions::Input => vec![0],
-            Instructions::Output => vec![-1],
-            Instructions::JumpNotZero => vec![-1, -2],
-            Instructions::JumpZero => vec![-1, -2],
-            Instructions::LessThan => vec![-1, -1, 0],
-            Instructions::EqualTo => vec![-1, -1, 0],
-            Instructions::Halt => vec![],
-            Instructions::Unknown => vec![],
-        }
-    }
-
-    fn to_asm_name(&self) -> &str {
-        match self {
-            Instructions::Add => "add",
-            Instructions::Multiply => "mul",
-            Instructions::Input => "inp",
-            Instructions::Output => "out",
-            Instructions::JumpNotZero => "jnz",
-            Instructions::JumpZero => "jez",
-            Instructions::LessThan => "clt",
-            Instructions::EqualTo => "eql",
-            Instructions::Halt => "hlt",
-            Instructions::Unknown => {
-                unreachable!("Cannot output unknown opcode");
-            }
-        }
-    }
-}
-
-impl fmt::Display for Instructions {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_asm_name())
-    }
-}
+use super::instruction::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum ItemType {
-    Instruction(Instructions),
+    Instruction(Instruction),
     Literal(i32),
     Reference(i32),
     Address(i32),
@@ -119,12 +50,12 @@ pub fn dasm(in_path: &str, out_path: &str) {
             continue;
         }
 
-        let mut modes = vec![0,0,0];
+        let mut modes = vec![ParameterMode::Reference; 3];
         if opcode >= 100 {
             let mut mode_num = (opcode - opcode % 100) / 100;
             let mut i = 0;
             while mode_num > 0 {
-                modes[i] = mode_num % 10;
+                modes[i] = ParameterMode::from_i32(mode_num % 10);
                 mode_num -= mode_num % 10;
                 mode_num /= 10;
                 i += 1;
@@ -132,7 +63,7 @@ pub fn dasm(in_path: &str, out_path: &str) {
             opcode %= 100;
         }
 
-        let inst = Instructions::from_i32(opcode);
+        let inst = Instruction::from_i32(opcode);
         output[i] = ItemType::Instruction(inst);
         
         for (j, expected_mode) in inst.to_params().iter().enumerate() {
@@ -142,14 +73,14 @@ pub fn dasm(in_path: &str, out_path: &str) {
                 None => break,
             };
             let param_mode = match *expected_mode {
-                -1 => modes[j],
+                ParameterMode::Any => modes[j],
                 a => a,
             };
 
             output[i] = match param_mode {
-                 0 => ItemType::Reference(param),
-                 1 => ItemType::Literal(param),
-                -2 => ItemType::Address(param),
+                ParameterMode::Reference => ItemType::Reference(param),
+                ParameterMode::Literal => ItemType::Literal(param),
+                ParameterMode::Address => ItemType::Address(param),
                  _ => unreachable!(),
             };
 
