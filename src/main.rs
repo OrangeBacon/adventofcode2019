@@ -18,6 +18,11 @@ fn main() {
         return;
     }
 
+    if args.len() == 4 && args[1] == "dasm" {
+        intcode::dasm(&args[2], &args[3]);
+        return;
+    }
+
     if args.len() == 3 && args[1] == "int" {
         intcode::run(&mut intcode::input(&args[2]), &vec![]);
         return;

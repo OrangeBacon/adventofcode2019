@@ -148,14 +148,14 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
             "jnz" => {
                 opcode.number = 5;
                 opcode.arg_count = 2;
-                opcode.arg_requirements = vec![-1, 2];
+                opcode.arg_requirements = vec![-1, -2];
             }
             "jez" => {
                 opcode.number = 6;
                 opcode.arg_count = 2;
-                opcode.arg_requirements = vec![-1, 2];
+                opcode.arg_requirements = vec![-1, -2];
             }
-            "nlt" => {
+            "clt" => {
                 opcode.number = 7;
                 opcode.arg_count = 3;
                 opcode.arg_requirements = vec![-1, -1, 0];
@@ -230,7 +230,7 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                         },
                     }
                 }
-                2 => {
+                -2 => {
                     match opcode.args[i] {
                         Address(_) => (),
                         _ => {
@@ -246,7 +246,9 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
         env.code.push(opcode);
     }
 
-    env.code.push(Opcode {number: 99, args: vec![], arg_count: 0, arg_requirements: vec![]});
+    if env.code.last().unwrap().number != 99 {
+        env.code.push(Opcode {number: 99, args: vec![], arg_count: 0, arg_requirements: vec![]});
+    }
 
     let mut patches: Vec<(usize, usize)> = vec![];
     let mut output_nums: Vec<i32> = vec![];
