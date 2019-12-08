@@ -102,22 +102,22 @@ pub fn run_yield(data: &mut RunData) -> Interrupt {
             opcode %= 100;
         }
 
-        match Instruction::from_i32(opcode) {
-            Instruction::Add => {
+        match OpCode::from_i32(opcode) {
+            OpCode::Add => {
                 let loc = code[*ip+3];
                 let a = getnum(code, *ip+1, modes[0]);
                 let b = getnum(code, *ip+2, modes[1]);
                 code[num2ip(loc)] = a + b;
                 *ip += 4;
             },
-            Instruction::Multiply => {
+            OpCode::Multiply => {
                 let loc = code[*ip+3]; 
                 let a = getnum(code, *ip+1, modes[0]);
                 let b = getnum(code, *ip+2, modes[1]);
                 code[num2ip(loc)] = a * b;
                 *ip += 4;
             },
-            Instruction::Input => {
+            OpCode::Input => {
                 let loc = code[*ip+1];
                 let val = match data.inputs.pop_front() {
                     Some(a) => a,
@@ -126,25 +126,25 @@ pub fn run_yield(data: &mut RunData) -> Interrupt {
                 code[num2ip(loc)] = val;
                 *ip += 2;
             },
-            Instruction::Output => {
+            OpCode::Output => {
                 *ip += 2;
                 return Interrupt::Output(getnum(code, *ip-1, modes[0])); 
             },
-            Instruction::JumpNotZero => {
+            OpCode::JumpNotZero => {
                 if getnum(code, *ip+1, modes[0]) == 0 {
                     *ip += 3;
                 } else {
                     *ip = num2ip(getnum(code, *ip+2, modes[1]));
                 }
             },
-            Instruction::JumpZero => {
+            OpCode::JumpZero => {
                 if getnum(code, *ip+1, modes[0]) == 0 {
                     *ip = num2ip(getnum(code, *ip+2, modes[1]));
                 } else {
                     *ip += 3;
                 }
             },
-            Instruction::LessThan => {
+            OpCode::LessThan => {
                 let loc = num2ip(code[*ip+3]);
                 if getnum(code, *ip+1, modes[0]) < getnum(code, *ip+2, modes[1]) {
                     code[loc] = 1;
@@ -153,7 +153,7 @@ pub fn run_yield(data: &mut RunData) -> Interrupt {
                 }
                 *ip += 4;
             },
-            Instruction::EqualTo => {
+            OpCode::EqualTo => {
                 let loc = num2ip(code[*ip+3]);
                 if getnum(code, *ip+1, modes[0]) == getnum(code, *ip+2, modes[1]) {
                     code[loc] = 1;
@@ -162,7 +162,7 @@ pub fn run_yield(data: &mut RunData) -> Interrupt {
                 }
                 *ip += 4;
             }
-            Instruction::Halt => return Interrupt::Halt,
+            OpCode::Halt => return Interrupt::Halt,
             _ => unimplemented!("Unimplemented Opcode reached: {}, {:?} at {}", opcode, modes, ip),
         }
     }

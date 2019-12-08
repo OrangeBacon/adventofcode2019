@@ -1,4 +1,5 @@
 use std::env;
+use std::io::{self, Write};
 mod intcode;
 
 enum Part {
@@ -24,13 +25,39 @@ fn main() {
     }
 
     if args.len() == 3 && args[1] == "int" {
-        intcode::run(&mut intcode::input(&args[2]), &vec![]);
-        return;
+        let mut data = intcode::RunData::new(&intcode::input(&args[2]));
+        loop {
+            match intcode::run_yield(&mut data) {
+                intcode::Interrupt::Halt => return,
+                intcode::Interrupt::Input => {
+                    let mut line = String::new();
+                    print!("> ");
+                    io::stdout().flush().expect("Could not flush output");
+                    io::stdin().read_line(&mut line).expect("Could not read line");
+                    let num = line.trim().parse::<i32>().expect("Could not parse i32");
+                    data.input(num);
+                },
+                intcode::Interrupt::Output(a) => println!("{}", a),
+            }
+        }
     }
 
     if args.len() == 3 && args[1] == "run" {
-        intcode::run(&mut intcode::asm(&args[2], ""), &vec![]);
-        return;
+        let mut data = intcode::RunData::new(&intcode::asm(&args[2], ""));
+        loop {
+            match intcode::run_yield(&mut data) {
+                intcode::Interrupt::Halt => return,
+                intcode::Interrupt::Input => {
+                    let mut line = String::new();
+                    print!("> ");
+                    io::stdout().flush().expect("Could not flush output");
+                    io::stdin().read_line(&mut line).expect("Could not read line");
+                    let num = line.trim().parse::<i32>().expect("Could not parse i32");
+                    data.input(num);
+                },
+                intcode::Interrupt::Output(a) => println!("{}", a),
+            }
+        }
     }
 
     if args.len() > 2 {

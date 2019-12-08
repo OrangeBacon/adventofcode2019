@@ -10,7 +10,7 @@ use super::instruction::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum ItemType {
-    Instruction(Instruction),
+    OpCode(OpCode),
     Literal(i32),
     Reference(i32),
     Address(i32),
@@ -63,8 +63,8 @@ pub fn dasm(in_path: &str, out_path: &str) {
             opcode %= 100;
         }
 
-        let inst = Instruction::from_i32(opcode);
-        output[i] = ItemType::Instruction(inst);
+        let inst = OpCode::from_i32(opcode);
+        output[i] = ItemType::OpCode(inst);
         
         for (j, expected_mode) in inst.to_params().iter().enumerate() {
             i += 1;
@@ -188,7 +188,7 @@ pub fn dasm(in_path: &str, out_path: &str) {
     let mut first = true;
     for item in &output {
         match item {
-            ItemType::Instruction(a) => {
+            ItemType::OpCode(a) => {
                 write!(output_file, "\n    {}", a).expect("Unable to write");
             }
             ItemType::Literal(a) => {

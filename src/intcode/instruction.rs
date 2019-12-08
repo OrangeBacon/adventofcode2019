@@ -22,8 +22,15 @@ impl ParameterMode {
     }
 }
 
+#[derive(Debug)]
+pub enum Argument {
+    Literal(i32),
+    Variable(usize),
+    Address(String),
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Instruction {
+pub enum OpCode {
     Add,
     Multiply,
     Input,
@@ -36,66 +43,66 @@ pub enum Instruction {
     Unknown,
 }
 
-impl Instruction {
-    pub fn from_i32(val: i32) -> Instruction {
+impl OpCode {
+    pub fn from_i32(val: i32) -> OpCode {
         match val {
-             1 => Instruction::Add,
-             2 => Instruction::Multiply,
-             3 => Instruction::Input,
-             4 => Instruction::Output,
-             5 => Instruction::JumpNotZero,
-             6 => Instruction::JumpZero,
-             7 => Instruction::LessThan,
-             8 => Instruction::EqualTo,
-             99 => Instruction::Halt,
-             _ => Instruction::Unknown,
+             1 => OpCode::Add,
+             2 => OpCode::Multiply,
+             3 => OpCode::Input,
+             4 => OpCode::Output,
+             5 => OpCode::JumpNotZero,
+             6 => OpCode::JumpZero,
+             7 => OpCode::LessThan,
+             8 => OpCode::EqualTo,
+             99 => OpCode::Halt,
+             _ => OpCode::Unknown,
         }
     }
 
     pub fn to_i32(&self) -> i32 {
         match self {
-            Instruction::Add => 1,
-            Instruction::Multiply => 2,
-            Instruction::Input => 3,
-            Instruction::Output => 4,
-            Instruction::JumpNotZero => 5,
-            Instruction::JumpZero => 6,
-            Instruction::LessThan => 7,
-            Instruction::EqualTo => 8,
-            Instruction::Halt => 99,
-            Instruction::Unknown => {
-                panic!("Cannot write unknown instruction");
-            },
+            OpCode::Add => 1,
+            OpCode::Multiply => 2,
+            OpCode::Input => 3,
+            OpCode::Output => 4,
+            OpCode::JumpNotZero => 5,
+            OpCode::JumpZero => 6,
+            OpCode::LessThan => 7,
+            OpCode::EqualTo => 8,
+            OpCode::Halt => 99,
+            OpCode::Unknown => {
+                panic!("Cannot write unknown OpCode");
+            }
        }
     }
 
-    pub fn from_asm_name(name: &str) -> Instruction {
+    pub fn from_asm_name(name: &str) -> OpCode {
         match name {
-            "add" => Instruction::Add,
-            "mul" => Instruction::Multiply,
-            "inp" => Instruction::Input,
-            "out" => Instruction::Output,
-            "jnz" => Instruction::JumpNotZero,
-            "jez" => Instruction::JumpZero,
-            "clt" => Instruction::LessThan,
-            "eql" => Instruction::EqualTo,
-            "hlt" => Instruction::Halt,
-            _ => Instruction::Unknown,
+            "add" => OpCode::Add,
+            "mul" => OpCode::Multiply,
+            "inp" => OpCode::Input,
+            "out" => OpCode::Output,
+            "jnz" => OpCode::JumpNotZero,
+            "jez" => OpCode::JumpZero,
+            "clt" => OpCode::LessThan,
+            "eql" => OpCode::EqualTo,
+            "hlt" => OpCode::Halt,
+            _ => OpCode::Unknown,
         }
     }
 
     pub fn to_asm_name(&self) -> &str {
         match self {
-            Instruction::Add => "add",
-            Instruction::Multiply => "mul",
-            Instruction::Input => "inp",
-            Instruction::Output => "out",
-            Instruction::JumpNotZero => "jnz",
-            Instruction::JumpZero => "jez",
-            Instruction::LessThan => "clt",
-            Instruction::EqualTo => "eql",
-            Instruction::Halt => "hlt",
-            Instruction::Unknown => {
+            OpCode::Add => "add",
+            OpCode::Multiply => "mul",
+            OpCode::Input => "inp",
+            OpCode::Output => "out",
+            OpCode::JumpNotZero => "jnz",
+            OpCode::JumpZero => "jez",
+            OpCode::LessThan => "clt",
+            OpCode::EqualTo => "eql",
+            OpCode::Halt => "hlt",
+            OpCode::Unknown => {
                 unreachable!("Cannot output unknown opcode");
             }
         }
@@ -104,22 +111,37 @@ impl Instruction {
     pub fn to_params(&self) -> Vec<ParameterMode> {
         use ParameterMode::*;
         match self {
-            Instruction::Add => vec![Any, Any, Reference],
-            Instruction::Multiply => vec![Any, Any, Reference],
-            Instruction::Input => vec![Reference],
-            Instruction::Output => vec![Any],
-            Instruction::JumpNotZero => vec![Any, Address],
-            Instruction::JumpZero => vec![Any, Address],
-            Instruction::LessThan => vec![Any, Any, Reference],
-            Instruction::EqualTo => vec![Any, Any, Reference],
-            Instruction::Halt => vec![],
-            Instruction::Unknown => vec![],
+            OpCode::Add => vec![Any, Any, Reference],
+            OpCode::Multiply => vec![Any, Any, Reference],
+            OpCode::Input => vec![Reference],
+            OpCode::Output => vec![Any],
+            OpCode::JumpNotZero => vec![Any, Address],
+            OpCode::JumpZero => vec![Any, Address],
+            OpCode::LessThan => vec![Any, Any, Reference],
+            OpCode::EqualTo => vec![Any, Any, Reference],
+            OpCode::Halt => vec![],
+            OpCode::Unknown => vec![],
         }
     }
 }
 
-impl fmt::Display for Instruction {
+impl fmt::Display for OpCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_asm_name())
+    }
+}
+
+#[derive(Debug)]
+pub struct Instruction {
+    pub opcode: OpCode,
+    pub args: Vec<Argument>,
+}
+
+impl Instruction {
+    pub fn new(opcode: OpCode, args: Vec<Argument>) -> Instruction {
+        Instruction {
+            opcode: opcode,
+            args: args,
+        }
     }
 }

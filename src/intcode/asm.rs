@@ -6,21 +6,15 @@ use std::process::exit;
 use std::collections::HashMap;
 use indexmap::map::IndexMap;
 use regex::Regex;
-use super::instruction::*;
-
-#[derive(Debug)]
-enum Argument {
-    Literal(i32),
-    Variable(usize),
-    Address(String),
-}
-use Argument::*;
+use super::instruction::{*, Argument::*};
 
 #[derive(Debug)]
 struct Environment {
     variables: IndexMap<String, i32>,
     labels: HashMap<String, usize>,
-    code: Vec<(Instruction, Vec<Argument>)>,
+    code: Vec<Instruction>,
+    line_num: usize,
+    label_counter: usize,
 }
 
 impl Environment {
@@ -29,6 +23,8 @@ impl Environment {
             variables: IndexMap::new(),
             code: vec![],
             labels: HashMap::new(),
+            line_num: 0,
+            label_counter: 0,
         }
     }
 
@@ -45,6 +41,71 @@ impl Environment {
             exit(1);
         }
         self.variables.insert(name.to_string(), num);
+    }
+}
+
+fn parse_arg(env: &mut Environment, word: &str) -> Option<Argument> {
+    env.label_counter += 1;
+    match word.chars().nth(0).unwrap() {
+        '$' => {
+            match env.variables.get_full(&word[1..].to_string()) {
+                Some(a) => return Some(Variable(a.0)),
+                None => {
+                    println!("Undefined variable: {} on line {}", word[1..].to_string(), env.line_num+1);
+                    exit(1);
+                }
+            }
+        },
+        ':' => return Some(Address(word[1..].to_string())),
+        ';' => return None,
+        _ => (),
+    }
+    match word.parse::<i32>() {
+        Ok(a) => return Some(Literal(a)),
+        Err(_) => {
+            println!("Bad numeric argument: {} on line {}", word, env.line_num + 1);
+            exit(1);
+        }
+    }
+}
+
+fn param_verify(opcode: OpCode, args: &Vec<Argument>, env: &Environment) {
+    if args.len() != opcode.to_params().len() {
+        println!("Wrong argument count on line {}, expecting {}, got {}", 
+            env.line_num+1, opcode.to_params().len(), args.len());
+        exit(0);
+    }
+    for (i, req) in opcode.to_params().iter().enumerate() {
+        match *req {
+            ParameterMode::Reference => {
+                match args[i] {
+                    Variable(_) => (),
+                    _ => {
+                        println!("Position {} must be a variable on line {}", i, env.line_num+1);
+                        exit(0);
+                    },
+                }
+            }
+            ParameterMode::Literal => {
+                match args[i] {
+                    Literal(_) => (),
+                    _ => {
+                        println!("Position {} must be a literal on line {}", i, env.line_num+1);
+                        exit(0);
+                    },
+                }
+            }
+            ParameterMode::Address => {
+                match args[i] {
+                    Address(_) => (),
+                    _ => {
+                        println!("Position {} must be an address on line {}", i, env.line_num+1);
+                        exit(0);
+                    },
+                }
+            }
+            _ => ()
+        }
     }
 }
 
@@ -72,7 +133,6 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
     }
 
     let mut env = Environment::new();
-    let mut label_counter = 0;
 
     let var = Regex::new(
         r"\$([[:word:]]+)[[:space:]]*=[[:space:]](-?[[:digit:]]+)*"
@@ -82,6 +142,7 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
     ).unwrap();
 
     for (line_num, line) in s.lines().enumerate() {
+        env.line_num = line_num;
         let chars = line.trim();
 
         if chars.len() == 0 {
@@ -108,95 +169,53 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                 if env.labels.contains_key(&a[1].to_string()) {
                     println!("Duplicate label: {} at line {}", chars, line_num+1);
                 }
-                env.labels.insert(a[1].to_string(), label_counter);
+                env.labels.insert(a[1].to_string(), env.label_counter);
                 continue;
             },
             None => (),
         }
 
         let mut words = chars.split_whitespace();
-        let opcode = Instruction::from_asm_name(words.next().unwrap());
-        let mut args = vec![];
+        let name = words.next().unwrap();
+        let opcode = OpCode::from_asm_name(name);
 
-        for word in words {
-            match word.chars().nth(0).unwrap() {
-                '$' => {
-                    match env.variables.get_full(&word[1..].to_string()) {
-                        Some(a) => args.push(Variable(a.0)),
-                        None => {
-                            println!("Undefined variable: {} on line {}", word[1..].to_string(), line_num+1);
-                            exit(1);
-                        }
-                    }
-                    continue;
-                },
-                ':' => {
-                    args.push(Address(word[1..].to_string()));
-                    continue;
-                }
-                ';' => break,
-                _ => (),
-            }
-            match word.parse::<i32>() {
-                Ok(a) => args.push(Literal(a)),
-                Err(_) => {
-                    println!("Bad numeric argument: {} on line {}", word, line_num + 1);
-                    exit(1);
-                }
-            }
-        }
-
-        if args.len() != opcode.to_params().len() {
-            println!("Wrong argument count on line {}, expecting {}, got {}", 
-                line_num+1, opcode.to_params().len(), args.len());
+        if opcode == OpCode::Unknown {
+            println!("Unknown opcode: {}", name);
             exit(0);
         }
 
-        for (i, req) in opcode.to_params().iter().enumerate() {
-            match *req {
-                ParameterMode::Reference => {
-                    match args[i] {
-                        Variable(_) => (),
-                        _ => {
-                            println!("Position {} must be a variable on line {}", i, line_num+1);
-                            exit(0);
-                        },
-                    }
+        env.label_counter += 1;
+
+        let mut args = vec![];
+        for _ in opcode.to_params() {
+            let word = match words.next() {
+                Some(a) => a,
+                None => {
+                    println!("Expecting another argument on line {}", line_num+1);
+                    exit(0);
                 }
-                ParameterMode::Literal => {
-                    match args[i] {
-                        Literal(_) => (),
-                        _ => {
-                            println!("Position {} must be a literal on line {}", i, line_num+1);
-                            exit(0);
-                        },
-                    }
+            };
+            match parse_arg(&mut env, word) {
+                Some(a) => args.push(a),
+                None => {
+                    println!("Expecting another argument on line {}", line_num)
                 }
-                ParameterMode::Address => {
-                    match args[i] {
-                        Address(_) => (),
-                        _ => {
-                            println!("Position {} must be an address on line {}", i, line_num+1);
-                            exit(0);
-                        },
-                    }
-                }
-                _ => ()
             }
         }
-        label_counter += opcode.to_params().len() + 1;
-        env.code.push((opcode, args));
+
+        param_verify(opcode, &args, &mut env);
+        env.code.push(Instruction::new(opcode, args));
     }
 
-    if env.code.last().unwrap().0.to_i32() != 99 {
-        env.code.push((Instruction::Halt, vec![]));
+    if env.code.last().unwrap().opcode.to_i32() != 99 {
+        env.code.push(Instruction::new(OpCode::Halt, vec![]));
     }
 
     let mut patches: Vec<(usize, usize)> = vec![];
     let mut output_nums: Vec<i32> = vec![];
-    for opcode in env.code {
-        let mut num = opcode.0.to_i32();
-        for (i, arg) in opcode.1.iter().enumerate() {
+    for instruction in env.code {
+        let mut num = instruction.opcode.to_i32();
+        for (i, arg) in instruction.args.iter().enumerate() {
             match arg {
                 Literal(_) => num += 10i32.pow(i as u32 + 2),
                 Variable(_) => (),
@@ -205,7 +224,7 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
         }
         output_nums.push(num);
 
-        for arg in &opcode.1 {
+        for arg in &instruction.args {
             match arg {
                 Literal(a) => output_nums.push(*a),
                 Variable(a) => {
