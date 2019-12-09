@@ -1,4 +1,7 @@
+use std::process::exit;
 use std::fmt;
+use std::collections::HashMap;
+use indexmap::map::IndexMap;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ParameterMode {
@@ -7,6 +10,15 @@ pub enum ParameterMode {
     Relative,
     Any,
     Address,
+}
+
+#[derive(Debug)]
+pub struct Environment {
+    pub variables: IndexMap<String, i64>,
+    pub labels: HashMap<String, usize>,
+    pub code: Vec<Instruction>,
+    pub line_num: usize,
+    pub label_counter: usize,
 }
 
 impl ParameterMode {
@@ -24,11 +36,34 @@ impl ParameterMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Argument {
     Literal(i64),
     Variable(usize),
     Address(String),
+    Relative(i64),
+}
+
+impl Argument {
+    pub fn emit(&self, output: &mut Vec<i64>, patches: &mut Vec<(usize, usize)>, env: &Environment) {
+        match self {
+            Argument::Literal(a) => output.push(*a),
+            Argument::Variable(a) => {
+                patches.push((output.len(), *a));
+                output.push(-1);
+            },
+            Argument::Address(a) => {
+                match env.labels.get(a) {
+                    Some(loc) => output.push(*loc as i64),
+                    None => {
+                        println!("Undefined label {}", a);
+                        exit(1);
+                    }
+                }
+            },
+            Argument::Relative(a) => output.push(*a),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -44,6 +79,7 @@ pub enum OpCode {
     Halt,
     RelativeAdjust,
     Unknown,
+    Jump,
 }
 
 impl OpCode {
@@ -75,10 +111,17 @@ impl OpCode {
             OpCode::EqualTo => 8,
             OpCode::RelativeAdjust => 9,
             OpCode::Halt => 99,
-            OpCode::Unknown => {
+            OpCode::Unknown | _ => {
                 panic!("Cannot write unknown OpCode");
             }
        }
+    }
+
+    pub fn is_virtual(&self) -> bool {
+        match self {
+            OpCode::Jump => true,
+            _ => false,
+        }
     }
 
     pub fn from_asm_name(name: &str) -> OpCode {
@@ -93,6 +136,7 @@ impl OpCode {
             "eql" => OpCode::EqualTo,
             "rba" => OpCode::RelativeAdjust,
             "hlt" => OpCode::Halt,
+            "jmp" => OpCode::Jump,
             _ => OpCode::Unknown,
         }
     }
@@ -109,6 +153,7 @@ impl OpCode {
             OpCode::EqualTo => "eql",
             OpCode::RelativeAdjust => "rba",
             OpCode::Halt => "hlt",
+            OpCode::Jump => "jmp",
             OpCode::Unknown => {
                 unreachable!("Cannot output unknown opcode");
             }
@@ -128,6 +173,7 @@ impl OpCode {
             OpCode::EqualTo => vec![Any, Any, Position],
             OpCode::RelativeAdjust => vec![Any],
             OpCode::Halt => vec![],
+            OpCode::Jump => vec![Address],
             OpCode::Unknown => vec![],
         }
     }
@@ -150,6 +196,36 @@ impl Instruction {
         Instruction {
             opcode: opcode,
             args: args,
+        }
+    }
+
+    pub fn emit(&self, output: &mut Vec<i64>, patches: &mut Vec<(usize, usize)>, env: &Environment) {
+        if !self.opcode.is_virtual() {
+            let mut opcode;
+            opcode = self.opcode.to_i64();
+
+            for (i, arg) in self.args.iter().enumerate() {
+                match arg {
+                    Argument::Literal(_) => opcode += 10i64.pow(i as u32 + 2),
+                    Argument::Variable(_) => (),
+                    Argument::Address(_) => opcode += 10i64.pow(i as u32 + 2),
+                    Argument::Relative(_) => opcode += 10i64.pow(i as u32 + 2)*2,
+                }
+            }
+
+            output.push(opcode);
+            for arg in &self.args {
+                arg.emit(output, patches, env);
+            }
+            return;
+        }
+
+        match self.opcode {
+            OpCode::Jump => {
+                Instruction::new(OpCode::JumpZero, vec![Argument::Literal(0), self.args[0].clone()])
+                    .emit(output, patches, env);
+            },
+            _ => unreachable!(),
         }
     }
 }

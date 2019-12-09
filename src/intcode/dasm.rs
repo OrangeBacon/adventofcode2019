@@ -13,6 +13,7 @@ enum ItemType {
     OpCode(OpCode),
     Literal(i64),
     Reference(i64),
+    Relative(i64),
     Address(i64),
     Label(usize),
     Variable(usize, usize),
@@ -81,6 +82,7 @@ pub fn dasm(in_path: &str, out_path: &str) {
                 ParameterMode::Position => ItemType::Reference(param),
                 ParameterMode::Literal => ItemType::Literal(param),
                 ParameterMode::Address => ItemType::Address(param),
+                ParameterMode::Relative => ItemType::Relative(param),
                  _ => unreachable!(),
             };
 
@@ -193,6 +195,9 @@ pub fn dasm(in_path: &str, out_path: &str) {
             }
             ItemType::Literal(a) => {
                 write!(output_file, " {}", *a).expect("Unable to write");
+            }
+            ItemType::Relative(a) => {
+                write!(output_file, " @{}", *a).expect("Unable to write");
             }
             ItemType::Reference(_) => {
                 unreachable!();

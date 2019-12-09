@@ -8,15 +8,6 @@ use indexmap::map::IndexMap;
 use regex::Regex;
 use super::instruction::{*, Argument::*};
 
-#[derive(Debug)]
-struct Environment {
-    variables: IndexMap<String, i64>,
-    labels: HashMap<String, usize>,
-    code: Vec<Instruction>,
-    line_num: usize,
-    label_counter: usize,
-}
-
 impl Environment {
     fn new() -> Environment {
         Environment {
@@ -51,12 +42,22 @@ fn parse_arg(env: &mut Environment, word: &str) -> Option<Argument> {
             match env.variables.get_full(&word[1..].to_string()) {
                 Some(a) => return Some(Variable(a.0)),
                 None => {
-                    println!("Undefined variable: {} on line {}", word[1..].to_string(), env.line_num+1);
+                    println!("Undefined variable: {} on line {}", word[1..].to_string(), env.line_num);
                     exit(1);
                 }
             }
         },
         ':' => return Some(Address(word[1..].to_string())),
+        '@' => {
+            let num = match word[1..].parse::<i64>() {
+                Ok(a) => a,
+                Err(_) => {
+                    println!("Bad number in relative argument on line {}", env.line_num);
+                    exit(1);
+                }
+            };
+            return Some(Relative(num));
+        }
         ';' => return None,
         _ => (),
     }
@@ -213,36 +214,8 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i64> {
 
     let mut patches: Vec<(usize, usize)> = vec![];
     let mut output_nums: Vec<i64> = vec![];
-    for instruction in env.code {
-        let mut num = instruction.opcode.to_i64();
-        for (i, arg) in instruction.args.iter().enumerate() {
-            match arg {
-                Literal(_) => num += 10i64.pow(i as u32 + 2),
-                Variable(_) => (),
-                Address(_) => num += 10i64.pow(i as u32 + 2),
-            }
-        }
-        output_nums.push(num);
-
-        for arg in &instruction.args {
-            match arg {
-                Literal(a) => output_nums.push(*a),
-                Variable(a) => {
-                    patches.push((output_nums.len(), *a));
-                    output_nums.push(-1);
-                },
-                Address(a) => {
-                    match env.labels.get(a) {
-                        Some(loc) => output_nums.push(*loc as i64),
-                        None => {
-                            println!("Undefined label {}", a);
-                            exit(1);
-                        }
-                    }
-                    
-                }
-            }
-        }
+    for instruction in &env.code {
+        instruction.emit(&mut output_nums, &mut patches, &env);
     }
 
     let data_base = output_nums.len();
