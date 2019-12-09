@@ -34,7 +34,7 @@ fn main() {
                     print!("> ");
                     io::stdout().flush().expect("Could not flush output");
                     io::stdin().read_line(&mut line).expect("Could not read line");
-                    let num = line.trim().parse::<i32>().expect("Could not parse i32");
+                    let num = line.trim().parse::<i64>().expect("Could not parse i32");
                     data.input(num);
                 },
                 intcode::Interrupt::Output(a) => println!("{}", a),
@@ -52,7 +52,7 @@ fn main() {
                     print!("> ");
                     io::stdout().flush().expect("Could not flush output");
                     io::stdin().read_line(&mut line).expect("Could not read line");
-                    let num = line.trim().parse::<i32>().expect("Could not parse i32");
+                    let num = line.trim().parse::<i64>().expect("Could not parse i32");
                     data.input(num);
                 },
                 intcode::Interrupt::Output(a) => println!("{}", a),
@@ -127,6 +127,8 @@ mod day7a;
 mod day7b;
 mod day8a;
 mod day8b;
+mod day9a;
+mod day9b;
 
 fn run(day: u32, part: Part) {
     let id = ID(day, part);
@@ -147,6 +149,8 @@ fn run(day: u32, part: Part) {
         ID(7, Part::Second) => day7b::day7b(),
         ID(8, Part::First) => day8a::day8a(),
         ID(8, Part::Second) => day8b::day8b(),
+        ID(9, Part::First) => day9a::day9a(),
+        ID(9, Part::Second) => day9b::day9b(),
         ID(_, _) => println!("Could not find day/part"),
     }
 }

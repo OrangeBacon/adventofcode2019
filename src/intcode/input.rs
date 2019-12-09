@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-pub fn input(path: &str) -> Vec<i32> {
+pub fn input(path: &str) -> Vec<i64> {
     let path = Path::new(path);
     let display = path.display();
 
@@ -20,7 +20,7 @@ pub fn input(path: &str) -> Vec<i32> {
 
     s.split(",").map(|x| {
         match x.as_bytes()[0] {
-            b'-' => -(x[1..].parse::<i32>().unwrap()),
+            b'-' => -(x[1..].parse::<i64>().unwrap()),
             _ => x.parse().unwrap(),
         }
         

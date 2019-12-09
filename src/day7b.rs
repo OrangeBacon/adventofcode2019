@@ -3,7 +3,7 @@ use super::intcode;
 
 pub fn day7b() {
     let code = intcode::input("data/day7.txt");
-    let mut outputs: Vec<i32> = vec![];
+    let mut outputs: Vec<i64> = vec![];
     for a in 5..=9 {
         for b in 5..=9 {
             for c in 5..=9 {

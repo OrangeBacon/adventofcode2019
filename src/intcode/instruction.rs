@@ -2,17 +2,19 @@ use std::fmt;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ParameterMode {
-    Reference,
+    Position,
     Literal,
+    Relative,
     Any,
     Address,
 }
 
 impl ParameterMode {
-    pub fn from_i32(val: i32) -> ParameterMode {
+    pub fn from_i64(val: i64) -> ParameterMode {
         match val {
-            0 => ParameterMode::Reference,
+            0 => ParameterMode::Position,
             1 => ParameterMode::Literal,
+            2 => ParameterMode::Relative,
             -1 => ParameterMode::Any,
             -2 => ParameterMode::Address,
             a => {
@@ -24,7 +26,7 @@ impl ParameterMode {
 
 #[derive(Debug)]
 pub enum Argument {
-    Literal(i32),
+    Literal(i64),
     Variable(usize),
     Address(String),
 }
@@ -40,11 +42,12 @@ pub enum OpCode {
     LessThan,
     EqualTo,
     Halt,
+    RelativeAdjust,
     Unknown,
 }
 
 impl OpCode {
-    pub fn from_i32(val: i32) -> OpCode {
+    pub fn from_i64(val: i64) -> OpCode {
         match val {
              1 => OpCode::Add,
              2 => OpCode::Multiply,
@@ -54,12 +57,13 @@ impl OpCode {
              6 => OpCode::JumpZero,
              7 => OpCode::LessThan,
              8 => OpCode::EqualTo,
+             9 => OpCode::RelativeAdjust,
              99 => OpCode::Halt,
              _ => OpCode::Unknown,
         }
     }
 
-    pub fn to_i32(&self) -> i32 {
+    pub fn to_i64(&self) -> i64 {
         match self {
             OpCode::Add => 1,
             OpCode::Multiply => 2,
@@ -69,6 +73,7 @@ impl OpCode {
             OpCode::JumpZero => 6,
             OpCode::LessThan => 7,
             OpCode::EqualTo => 8,
+            OpCode::RelativeAdjust => 9,
             OpCode::Halt => 99,
             OpCode::Unknown => {
                 panic!("Cannot write unknown OpCode");
@@ -86,6 +91,7 @@ impl OpCode {
             "jez" => OpCode::JumpZero,
             "clt" => OpCode::LessThan,
             "eql" => OpCode::EqualTo,
+            "rba" => OpCode::RelativeAdjust,
             "hlt" => OpCode::Halt,
             _ => OpCode::Unknown,
         }
@@ -101,6 +107,7 @@ impl OpCode {
             OpCode::JumpZero => "jez",
             OpCode::LessThan => "clt",
             OpCode::EqualTo => "eql",
+            OpCode::RelativeAdjust => "rba",
             OpCode::Halt => "hlt",
             OpCode::Unknown => {
                 unreachable!("Cannot output unknown opcode");
@@ -111,14 +118,15 @@ impl OpCode {
     pub fn to_params(&self) -> Vec<ParameterMode> {
         use ParameterMode::*;
         match self {
-            OpCode::Add => vec![Any, Any, Reference],
-            OpCode::Multiply => vec![Any, Any, Reference],
-            OpCode::Input => vec![Reference],
+            OpCode::Add => vec![Any, Any, Position],
+            OpCode::Multiply => vec![Any, Any, Position],
+            OpCode::Input => vec![Position],
             OpCode::Output => vec![Any],
             OpCode::JumpNotZero => vec![Any, Address],
             OpCode::JumpZero => vec![Any, Address],
-            OpCode::LessThan => vec![Any, Any, Reference],
-            OpCode::EqualTo => vec![Any, Any, Reference],
+            OpCode::LessThan => vec![Any, Any, Position],
+            OpCode::EqualTo => vec![Any, Any, Position],
+            OpCode::RelativeAdjust => vec![Any],
             OpCode::Halt => vec![],
             OpCode::Unknown => vec![],
         }

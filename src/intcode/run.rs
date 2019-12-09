@@ -6,12 +6,12 @@ use super::instruction::*;
 #[derive(Debug)]
 pub enum Interrupt {
     Input,
-    Output(i32),
+    Output(i64),
     Halt,
 }
 
 impl Interrupt {
-    pub fn as_output(self) -> i32 {
+    pub fn as_output(self) -> i64 {
         match self {
             Interrupt::Output(a) => a,
             a => {
@@ -22,47 +22,65 @@ impl Interrupt {
 }
 
 pub struct RunData {
-    code: Vec<i32>,
+    code: Vec<i64>,
     ip: usize,
-    inputs: VecDeque<i32>,
+    rb: usize,
+    inputs: VecDeque<i64>,
 }
 
 impl RunData {
-    pub fn new(code: &Vec<i32>) -> RunData {
+    pub fn new(code: &Vec<i64>) -> RunData {
         return RunData {
             code: code.clone(),
             ip: 0,
+            rb: 0,
             inputs: VecDeque::new(),
         }
     }
 
-    pub fn input(&mut self, num: i32) {
+    pub fn input(&mut self, num: i64) {
         self.inputs.push_back(num);
     }
 
-    pub fn input_vec(&mut self, nums: &[i32]) {
+    pub fn input_vec(&mut self, nums: &[i64]) {
         for num in nums {
             self.inputs.push_back(*num);
         }
     }
 }
 
-fn getnum(code: &mut Vec<i32>, ip: usize, mode: ParameterMode) -> i32 {
+fn extend(code: &mut Vec<i64>, ip: usize, rb: usize) {
+    if ip >= code.len() || rb + ip >= code.len() {
+        code.extend(vec![0; 2*ip]);
+    }
+}
+
+fn getnum(code: &mut Vec<i64>, ip: usize, rb: usize, mode: ParameterMode) -> &mut i64 {
+    extend(code, ip, rb);
     match mode {
-        ParameterMode::Reference => code[num2ip(code[ip])],
-        ParameterMode::Literal => code[ip],
+        ParameterMode::Position => {
+            let loc = num2ip(code[ip]);
+            extend(code, loc, rb);
+            &mut code[loc]
+        },
+        ParameterMode::Literal => &mut code[ip],
+        ParameterMode::Relative => {
+            let loc = num2ip(rb as i64 + code[ip]);
+            extend(code, loc, rb);
+            &mut code[loc]
+        },
         _ => unimplemented!("Cannot run virtual mode: {:?}", mode),
     }
 }
 
-fn num2ip(num: i32) -> usize {
+fn num2ip(num: i64) -> usize {
     if num < 0 {
         panic!("Cannot read negative location");
     }
     num as usize
 }
 
-pub fn run(code: &mut Vec<i32>, input_data: &Vec<i32>) -> i32 {
+pub fn run(code: &mut Vec<i64>, input_data: &Vec<i64>) -> i64 {
     let mut data = RunData::new(code);
     let mut inputs = VecDeque::from_iter(input_data);
     loop {
@@ -85,16 +103,17 @@ pub fn run(code: &mut Vec<i32>, input_data: &Vec<i32>) -> i32 {
 pub fn run_yield(data: &mut RunData) -> Interrupt {
     let code = &mut data.code;
     let ip = &mut data.ip;
+    let rb = &mut data.rb;
 
     loop {
         let mut opcode = code[*ip];
-        let mut modes = vec![ParameterMode::Reference; 3];
+        let mut modes = vec![ParameterMode::Position; 3];
 
         if opcode >= 100 {
             let mut mode_num = (opcode - opcode % 100) / 100;
             let mut i = 0;
             while mode_num > 0 {
-                modes[i] = ParameterMode::from_i32(mode_num % 10);
+                modes[i] = ParameterMode::from_i64(mode_num % 10);
                 mode_num -= mode_num % 10;
                 mode_num /= 10;
                 i += 1;
@@ -102,66 +121,70 @@ pub fn run_yield(data: &mut RunData) -> Interrupt {
             opcode %= 100;
         }
 
-        match OpCode::from_i32(opcode) {
+        match OpCode::from_i64(opcode) {
             OpCode::Add => {
-                let loc = code[*ip+3];
-                let a = getnum(code, *ip+1, modes[0]);
-                let b = getnum(code, *ip+2, modes[1]);
-                code[num2ip(loc)] = a + b;
+                let a = *getnum(code, *ip+1, *rb, modes[0]);
+                let b = *getnum(code, *ip+2,*rb,  modes[1]);
+                *getnum(code, *ip+3, *rb, modes[2]) = a + b;
                 *ip += 4;
             },
             OpCode::Multiply => {
-                let loc = code[*ip+3]; 
-                let a = getnum(code, *ip+1, modes[0]);
-                let b = getnum(code, *ip+2, modes[1]);
-                code[num2ip(loc)] = a * b;
+                let a = *getnum(code, *ip+1, *rb, modes[0]);
+                let b = *getnum(code, *ip+2, *rb, modes[1]);
+                *getnum(code, *ip+3, *rb, modes[2]) = a * b;
                 *ip += 4;
             },
             OpCode::Input => {
-                let loc = code[*ip+1];
                 let val = match data.inputs.pop_front() {
                     Some(a) => a,
                     None => return Interrupt::Input,
                 };
-                code[num2ip(loc)] = val;
+                *getnum(code, *ip+1, *rb, modes[0]) = val;
                 *ip += 2;
             },
             OpCode::Output => {
                 *ip += 2;
-                return Interrupt::Output(getnum(code, *ip-1, modes[0])); 
+                return Interrupt::Output(*getnum(code, *ip-1, *rb, modes[0])); 
             },
             OpCode::JumpNotZero => {
-                if getnum(code, *ip+1, modes[0]) == 0 {
+                if *getnum(code, *ip+1, *rb, modes[0]) == 0 {
                     *ip += 3;
                 } else {
-                    *ip = num2ip(getnum(code, *ip+2, modes[1]));
+                    *ip = num2ip(*getnum(code, *ip+2, *rb, modes[1]));
                 }
             },
             OpCode::JumpZero => {
-                if getnum(code, *ip+1, modes[0]) == 0 {
-                    *ip = num2ip(getnum(code, *ip+2, modes[1]));
+                if *getnum(code, *ip+1, *rb, modes[0]) == 0 {
+                    *ip = num2ip(*getnum(code, *ip+2, *rb, modes[1]));
                 } else {
                     *ip += 3;
                 }
             },
             OpCode::LessThan => {
-                let loc = num2ip(code[*ip+3]);
-                if getnum(code, *ip+1, modes[0]) < getnum(code, *ip+2, modes[1]) {
-                    code[loc] = 1;
+                if *getnum(code, *ip+1, *rb, modes[0]) < *getnum(code, *ip+2, *rb, modes[1]) {
+                    *getnum(code, *ip+3, *rb, modes[2]) = 1;
                 } else {
-                    code[loc] = 0;
+                    *getnum(code, *ip+3, *rb, modes[2]) = 0;
                 }
                 *ip += 4;
             },
             OpCode::EqualTo => {
-                let loc = num2ip(code[*ip+3]);
-                if getnum(code, *ip+1, modes[0]) == getnum(code, *ip+2, modes[1]) {
-                    code[loc] = 1;
+                if *getnum(code, *ip+1, *rb, modes[0]) == *getnum(code, *ip+2, *rb, modes[1]) {
+                    *getnum(code, *ip+3, *rb, modes[2]) = 1;
                 } else {
-                    code[loc] = 0;
+                    *getnum(code, *ip+3, *rb, modes[2]) = 0;
                 }
                 *ip += 4;
-            }
+            },
+            OpCode::RelativeAdjust => {
+                let loc = *getnum(code, *ip+1, *rb, modes[0]);
+                if loc > 0 {
+                    *rb += num2ip(loc);
+                } else {
+                    *rb -= num2ip(-loc);
+                }
+                *ip += 2;
+            },
             OpCode::Halt => return Interrupt::Halt,
             _ => unimplemented!("Unimplemented Opcode reached: {}, {:?} at {}", opcode, modes, ip),
         }

@@ -11,14 +11,14 @@ use super::instruction::*;
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum ItemType {
     OpCode(OpCode),
-    Literal(i32),
-    Reference(i32),
-    Address(i32),
+    Literal(i64),
+    Reference(i64),
+    Address(i64),
     Label(usize),
     Variable(usize, usize),
     LabelAddress(usize),
-    Data(i32),
-    Assign(usize, i32),
+    Data(i64),
+    Assign(usize, i64),
     None,
 }
 
@@ -50,12 +50,12 @@ pub fn dasm(in_path: &str, out_path: &str) {
             continue;
         }
 
-        let mut modes = vec![ParameterMode::Reference; 3];
+        let mut modes = vec![ParameterMode::Position; 3];
         if opcode >= 100 {
             let mut mode_num = (opcode - opcode % 100) / 100;
             let mut i = 0;
             while mode_num > 0 {
-                modes[i] = ParameterMode::from_i32(mode_num % 10);
+                modes[i] = ParameterMode::from_i64(mode_num % 10);
                 mode_num -= mode_num % 10;
                 mode_num /= 10;
                 i += 1;
@@ -63,7 +63,7 @@ pub fn dasm(in_path: &str, out_path: &str) {
             opcode %= 100;
         }
 
-        let inst = OpCode::from_i32(opcode);
+        let inst = OpCode::from_i64(opcode);
         output[i] = ItemType::OpCode(inst);
         
         for (j, expected_mode) in inst.to_params().iter().enumerate() {
@@ -78,7 +78,7 @@ pub fn dasm(in_path: &str, out_path: &str) {
             };
 
             output[i] = match param_mode {
-                ParameterMode::Reference => ItemType::Reference(param),
+                ParameterMode::Position => ItemType::Reference(param),
                 ParameterMode::Literal => ItemType::Literal(param),
                 ParameterMode::Address => ItemType::Address(param),
                  _ => unreachable!(),

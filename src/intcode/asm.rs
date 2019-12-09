@@ -10,7 +10,7 @@ use super::instruction::{*, Argument::*};
 
 #[derive(Debug)]
 struct Environment {
-    variables: IndexMap<String, i32>,
+    variables: IndexMap<String, i64>,
     labels: HashMap<String, usize>,
     code: Vec<Instruction>,
     line_num: usize,
@@ -29,7 +29,7 @@ impl Environment {
     }
 
     fn add_var(&mut self, name: &str, val: &str) {
-        let num = match val.parse::<i32>() {
+        let num = match val.parse::<i64>() {
             Ok(a) => a,
             Err(err) => {
                 println!("Could not parse number: {}", err);
@@ -60,7 +60,7 @@ fn parse_arg(env: &mut Environment, word: &str) -> Option<Argument> {
         ';' => return None,
         _ => (),
     }
-    match word.parse::<i32>() {
+    match word.parse::<i64>() {
         Ok(a) => return Some(Literal(a)),
         Err(_) => {
             println!("Bad numeric argument: {} on line {}", word, env.line_num + 1);
@@ -77,7 +77,7 @@ fn param_verify(opcode: OpCode, args: &Vec<Argument>, env: &Environment) {
     }
     for (i, req) in opcode.to_params().iter().enumerate() {
         match *req {
-            ParameterMode::Reference => {
+            ParameterMode::Position => {
                 match args[i] {
                     Variable(_) => (),
                     _ => {
@@ -109,7 +109,7 @@ fn param_verify(opcode: OpCode, args: &Vec<Argument>, env: &Environment) {
     }
 }
 
-pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
+pub fn asm(in_file: &str, out_file: &str) -> Vec<i64> {
     let path = Path::new(in_file);
     let display = path.display();
 
@@ -207,19 +207,19 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
         env.code.push(Instruction::new(opcode, args));
     }
 
-    if env.code.last().unwrap().opcode.to_i32() != 99 {
+    if env.code.last().unwrap().opcode.to_i64() != 99 {
         env.code.push(Instruction::new(OpCode::Halt, vec![]));
     }
 
     let mut patches: Vec<(usize, usize)> = vec![];
-    let mut output_nums: Vec<i32> = vec![];
+    let mut output_nums: Vec<i64> = vec![];
     for instruction in env.code {
-        let mut num = instruction.opcode.to_i32();
+        let mut num = instruction.opcode.to_i64();
         for (i, arg) in instruction.args.iter().enumerate() {
             match arg {
-                Literal(_) => num += 10i32.pow(i as u32 + 2),
+                Literal(_) => num += 10i64.pow(i as u32 + 2),
                 Variable(_) => (),
-                Address(_) => num += 10i32.pow(i as u32 + 2),
+                Address(_) => num += 10i64.pow(i as u32 + 2),
             }
         }
         output_nums.push(num);
@@ -233,7 +233,7 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
                 },
                 Address(a) => {
                     match env.labels.get(a) {
-                        Some(loc) => output_nums.push(*loc as i32),
+                        Some(loc) => output_nums.push(*loc as i64),
                         None => {
                             println!("Undefined label {}", a);
                             exit(1);
@@ -251,7 +251,7 @@ pub fn asm(in_file: &str, out_file: &str) -> Vec<i32> {
     }
 
     for patch in patches {
-        output_nums[patch.0] = (data_base + patch.1) as i32;
+        output_nums[patch.0] = (data_base + patch.1) as i64;
     }
 
     match output {
